@@ -33,8 +33,6 @@ def compute_accuracy(all_target, all_pred):
 
 def train(net, params, optimizer, q_data, qa_data, pid_data, label):
     pass
-
-
 #     net.train()
 #     pid_flag, model_type = model_isPid_type(params.model)
 #     N = int(math.ceil(len(q_data) / params.batch_size))
@@ -373,3 +371,11 @@ def load_model(params):
     else:
         model = None
     return model
+
+# 列压缩格式压缩矩阵,传入要压缩的下标i以及p_c_matrix，则对p_c_matrix[i]进行压缩
+def csc_compress(p_c_matrix, i):
+    p_c_matrix_csc = sparse.csc_matrix(p_c_matrix[i])
+    return p_c_matrix_csc
+
+# p_c_matrix = build_p_c_matrix('data/assist2009_pid/assist2009_pid_train1.csv', 16891, 110)
+# print(csc_compress(p_c_matrix,-2))

@@ -1,5 +1,5 @@
-# import torch
-#
+import torch
+
 # # Step 1: 定义IRT模型示例
 # # model = IRTModel(num_students, num_items, num_skills, hidden_size)
 #

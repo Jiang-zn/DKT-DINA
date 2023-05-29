@@ -30,13 +30,14 @@ if __name__ == '__main__':
     parser.add_argument('--hidden_dim', type=int, default=128)
 
     parser.add_argument('--dropout', type=float, default=0.5)
-
-    # parser.add_argument('--q_embed_dim', type=int, default=50, help='question embedding dimensions')
     parser.add_argument('--qa_embed_dim', type=int, default=256, help='answer and question embedding dimensions')
+    parser.add_argument('--bidirectional', type=bool, default=False, help='是否使用双向RNN模型')
+    parser.add_argument('--l2', type=float, default=1e-5, help='l2 penalty for difficulty')
+    parser.add_argument('--q_embed_dim', type=int, default=50, help='question embedding dimensions')
     # parser.add_argument('--maxgradnorm', type=float, default=-1, help='最大化梯度范数')
     # parser.add_argument('--final_fc_dim', type=int, default=512, help='fc层维度')
-
-    parser.add_argument('--bidirectional', type=bool, default=False, help='是否使用双向RNN模型')
+    # parser.add_argument('--num_difficulties', type=int, default=100, help='number of difficulties')
+    # parser.add_argument('--num_discriminabilities', type=int, default=100, help='number of discriminabilities')
 
     params = parser.parse_args()
 
@@ -74,14 +75,14 @@ if __name__ == '__main__':
     if "pid" not in params.data_name:
         dat = DATA(n_question=params.n_question, seqlen=params.seqlen, separate_char=',')
     else:
-        dat = PID_DATA(n_question=params.n_question, seqlen=params.seqlen, separate_char=',')
+        dat = PID_DATA(n_question=params.n_question, n_pid=params.n_pid, seqlen=params.seqlen, separate_char=',')
     seedNum = params.seed
     np.random.seed(seedNum)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
     torch.manual_seed(seedNum)
     np.random.seed(seedNum)
-    file_name_identifier = get_file_name_identifier(params)
+    file_name_identifier = get_model_info(params)
 
     # Train- Test,参数打印
     d = vars(params)
@@ -92,9 +93,10 @@ if __name__ == '__main__':
         file_name = file_name + item_[0] + str(item_[1])
 
     # for filenums in range(1, 6):
-    train_data_path = params.data_dir + "/" + params.data_name + "_train" + str(filenums) + ".csv"
-    valid_data_path = params.data_dir + "/" + params.data_name + "_valid" + str(filenums) + ".csv"
-
+    # train_data_path = params.data_dir + "/" + params.data_name + "_train" + str(filenums) + ".csv"
+    # valid_data_path = params.data_dir + "/" + params.data_name + "_valid" + str(filenums) + ".csv"
+    train_data_path = params.data_dir + "/" + params.data_name + "_train1" + ".csv"
+    valid_data_path = params.data_dir + "/" + params.data_name + "_valid1" + ".csv"
     train_q_data, train_qa_data, train_pid = dat.load_data(train_data_path)
     valid_q_data, valid_qa_data, valid_pid = dat.load_data(valid_data_path)
 
@@ -105,8 +107,8 @@ if __name__ == '__main__':
     print("valid_qa_data.shape", valid_qa_data.shape)  # (1566, 200)
     print("\n")
 
-    best_epoch = train_one_dataset(params, file_name, train_q_data, train_qa_data, train_pid, valid_q_data,
-                                   valid_qa_data, valid_pid)
-    test_data_path = params.data_dir + "/" + params.data_name + "_test" + str(filenums) + ".csv"
-    test_q_data, test_qa_data, test_pid = dat.load_data(test_data_path)
-    test_one_dataset(params, file_name, test_q_data, test_qa_data, test_pid, best_epoch)
+    # best_epoch = train_one_dataset(params, file_name, train_q_data, train_qa_data, train_pid, valid_q_data,
+    #                                valid_qa_data, valid_pid)
+    # test_data_path = params.data_dir + "/" + params.data_name + "_test" + str(filenums) + ".csv"
+    # test_q_data, test_qa_data, test_pid = dat.load_data(test_data_path)
+    # test_one_dataset(params, file_name, test_q_data, test_qa_data, test_pid, best_epoch)

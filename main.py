@@ -1,10 +1,18 @@
+import sys
+import os
+import os.path
+import glob
+import logging
 import argparse
+import numpy as np
+import torch
 from DKTIRT import *
-from load_data import DATA, PID_DATA
+from load_data import *
 from eval import *
 from p_c_matrix import *
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# assert torch.cuda.is_available(), "No Cuda available, AssertionError"
 
 if __name__ == '__main__':
     # 参数设置 Parse Arguments Basic Parameters Common parameters Datasets and Model
