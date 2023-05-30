@@ -183,54 +183,60 @@ class PID_DATA(object):
     # 不对每一个学生构建自己的题目-知识点关联矩阵
     # 对所回答的题目及对应回答的知识点进行标记，构建二维矩阵
     # 将涉及到的所有题目及对应的知识点关联都存储起来
-    def build_p_c_matrix(self, path, ):
-        csv_data = open(path, 'r')
-        p_c_matrix = []
-        for lineID, line in enumerate(csv_data):
-            line = line.strip()
-            # lineID starts from 0
-            # 每4行为一个学生的数据，第一行为学生id，第二行为题目id，第三行为知识点序列，第四行为回答序列
-            if lineID % 4 == 0:
-                student_id = lineID // 4
-            if lineID % 4 == 1:
-                P = line.split(self.separate_char)
-                if len(P[len(P) - 1]) == 0:
-                    P = P[:-1]
-            if lineID % 4 == 2:
-                Q = line.split(self.separate_char)
-                if len(Q[len(Q) - 1]) == 0:
-                    Q = Q[:-1]
-                # print(len(Q))
-            elif lineID % 4 == 3:
-                A = line.split(self.separate_char)
-                if len(A[len(A) - 1]) == 0:
-                    A = A[:-1]
-                # print(len(A),A)
+    def build_p_c_matrix(self, paths, init_matrix):
+        # p_c_matrix = []
+        # p_c_matrix = np.zeros((self.n_pid + 1, self.n_question + 1))
+        for path in paths:
+            csv_data = open(path, 'r')
+            for lineID, line in enumerate(csv_data):
+                line = line.strip()
+                # lineID starts from 0
+                # 每4行为一个学生的数据，第一行为学生id，第二行为题目id，第三行为知识点序列，第四行为回答序列
+                if lineID % 4 == 0:
+                    student_id = lineID // 4
+                if lineID % 4 == 1:
+                    P = line.split(self.separate_char)
+                    if len(P[len(P) - 1]) == 0:
+                        P = P[:-1]
+                if lineID % 4 == 2:
+                    Q = line.split(self.separate_char)
+                    if len(Q[len(Q) - 1]) == 0:
+                        Q = Q[:-1]
+                    # print(len(Q))
+                elif lineID % 4 == 3:
+                    A = line.split(self.separate_char)
+                    if len(A[len(A) - 1]) == 0:
+                        A = A[:-1]
+                    # print(len(A),A)
 
+                    # 构建总的题目-知识点关联矩阵
+                    for pid, qid in zip(P, Q):
+                        init_matrix[int(pid)][int(qid)] = 1
+                # 把p_c_matrix存到csv文件中
+                # np.savetxt('p_c_matrix.csv', p_c_matrix, delimiter=',')
                 # 题目-知识点关联矩阵(每一个学生都有一个，会不会太冗余？）
                 # 构建一个二维矩阵，把P中的最大值是这个二维矩阵的行数，Q中的最大值作为这个二维矩阵的列数
-                max_P = 0
-                for i in range(len(P)):
-                    if int(P[i]) > max_P:
-                        max_P = int(P[i])
-                max_Q = 0
-                for i in range(len(Q)):
-                    if int(Q[i]) > max_Q:
-                        max_Q = int(Q[i])
+                # max_P = 0
+                # for i in range(len(P)):
+                #     if int(P[i]) > max_P:
+                #         max_P = int(P[i])
+                # max_Q = 0
+                # for i in range(len(Q)):
+                #     if int(Q[i]) > max_Q:
+                #         max_Q = int(Q[i])
                 # 把矩阵的值都置为0
-                p_c_matrix_one = np.zeros((max_P, max_Q))
+                # p_c_matrix_one = np.zeros((self.n_pid, max_Q)
                 # print(p_c_matrix_one)
                 # print(p_c_matrix_one.shape)
                 # 遍历P和Q，把P中的值作为行，Q中的值作为列，把这个二维矩阵中的值置为1，值不保留小数
-                for i in range(len(P)):
-                    if p_c_matrix_one[int(P[i]) - 1][int(Q[i]) - 1] == 0:
-                        p_c_matrix_one[int(P[i]) - 1][int(Q[i]) - 1] = 1
-                p_c_matrix.append(p_c_matrix_one)
-        # print(p_c_matrix[-2].shape)
-        # print(p_c_matrix[-2])
-        # print(len(p_c_matrix))
-        return p_c_matrix
+                # for i in range(len(P)):
+                #     if p_c_matrix_one[int(P[i]) - 1][int(Q[i]) - 1] == 0:
+                #         p_c_matrix_one[int(P[i]) - 1][int(Q[i]) - 1] = 1
+                # p_c_matrix.append(p_c_matrix_one)
 
+        return init_matrix
+
+    # 处理数据
     def load_data(self, path):
         f_data = open(path, 'r')
 

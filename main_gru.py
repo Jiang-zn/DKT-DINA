@@ -9,7 +9,6 @@ import torch
 from model import *
 from load_data import *
 from eval import *
-from p_c_matrix import *
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # assert torch.cuda.is_available(), "No Cuda available, AssertionError"
@@ -92,9 +91,22 @@ if __name__ == '__main__':
     for item_ in file_name_identifier:
         file_name = file_name + item_[0] + str(item_[1])
 
-    # for filenums in range(1, 6):
-    # train_data_path = params.data_dir + "/" + params.data_name + "_train" + str(filenums) + ".csv"
-    # valid_data_path = params.data_dir + "/" + params.data_name + "_valid" + str(filenums) + ".csv"
+    # 构建题目-知识点关联矩阵，并写进csv文件中
+    # paths = []
+    # for file_num in range(1, 6):
+    #     train_data_path = params.data_dir + "/" + params.data_name + "_train" + str(file_num) + ".csv"
+    #     valid_data_path = params.data_dir + "/" + params.data_name + "_valid" + str(file_num) + ".csv"
+    #     test_data_path = params.data_dir + "/" + params.data_name + "_test" + str(file_num) + ".csv"
+    #     paths.append(train_data_path)
+    #     paths.append(valid_data_path)
+    #     paths.append(test_data_path)
+    # init_matrix = np.zeros((params.n_pid + 1, params.n_question + 1))
+    # p_c_matrix = dat.build_p_c_matrix(paths, init_matrix)
+    # np.savetxt('p_c_matrix.csv', p_c_matrix, delimiter=',', fmt='%.1f')
+    # 读取这个文件中的数据
+    # 把题目-知识点关联矩阵读取出来
+    p_c_matrix = np.loadtxt('p_c_matrix.csv', delimiter=',')
+
     train_data_path = params.data_dir + "/" + params.data_name + "_train1" + ".csv"
     valid_data_path = params.data_dir + "/" + params.data_name + "_valid1" + ".csv"
     train_q_data, train_qa_data, train_pid = dat.load_data(train_data_path)
