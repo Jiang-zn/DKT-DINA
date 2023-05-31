@@ -32,7 +32,7 @@ class GRUDINA(nn.Module):
 
         self.fc = nn.Linear(self.hidden_dim, self.output_dim)
 
-    def forward(self, q_data, qa_data, matrix, slip, guess, pid_data=None):
+    def forward(self, q_data, qa_data, matrix, slip, guess, target, pid_data=None):
         q_embed_data = self.pid_embedding(q_data)
 
         if self.separate_qa:
@@ -51,3 +51,6 @@ class GRUDINA(nn.Module):
         output = self.fc(dina_output)
 
         return output
+
+    def estimate_dina_params(self, qa_data, matrix):
+        pass

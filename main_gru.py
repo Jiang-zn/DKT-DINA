@@ -33,6 +33,7 @@ if __name__ == '__main__':
     parser.add_argument('--bidirectional', type=bool, default=False, help='是否使用双向RNN模型')
     parser.add_argument('--l2', type=float, default=1e-5, help='l2 penalty for difficulty')
     parser.add_argument('--q_embed_dim', type=int, default=50, help='question embedding dimensions')
+
     # parser.add_argument('--maxgradnorm', type=float, default=-1, help='最大化梯度范数')
     # parser.add_argument('--final_fc_dim', type=int, default=512, help='fc层维度')
     # parser.add_argument('--num_difficulties', type=int, default=100, help='number of difficulties')
@@ -118,6 +119,8 @@ if __name__ == '__main__':
     print("valid_q_data.shape", valid_q_data.shape)  # (1566, 200)
     print("valid_qa_data.shape", valid_qa_data.shape)  # (1566, 200)
     print("\n")
+
+
 
     # best_epoch = train_one_dataset(params, file_name, train_q_data, train_qa_data, train_pid, valid_q_data,
     #                                valid_qa_data, valid_pid)
