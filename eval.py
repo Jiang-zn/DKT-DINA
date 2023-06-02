@@ -38,13 +38,13 @@ def train(net, params, optimizer, q_data, qa_data, pid_data, label):
     q_data = q_data.T  # Shape: (200,3633)
     qa_data = qa_data.T  # Shape: (200,3633)
     # Shuffle the data，将题目数据和答案数据打乱顺序，增加数据随机性，减小模型过拟合的风险
-    shuffled_ind = np.arange(q_data.shape[1])
-    np.random.shuffle(shuffled_ind)
-    q_data = q_data[:, shuffled_ind]
-    qa_data = qa_data[:, shuffled_ind]
+    # shuffled_ind = np.arange(q_data.shape[1])
+    # np.random.shuffle(shuffled_ind)
+    # q_data = q_data[:, shuffled_ind]
+    # qa_data = qa_data[:, shuffled_ind]
     if pid_flag:
         pid_data = pid_data.T
-        pid_data = pid_data[:, shuffled_ind]
+        # pid_data = pid_data[:, shuffled_ind]
     pred_list = []
     target_list = []
     element_count = 0
@@ -133,7 +133,6 @@ def test(net, params, optimizer, q_data, qa_data, pid_data, label):
     true_el = 0
     element_count = 0
     for idx in range(N):
-
         q_one_seq = q_data[:, idx * params.batch_size:(idx + 1) * params.batch_size]
         if pid_flag:
             pid_one_seq = pid_data[:, idx *
@@ -372,3 +371,35 @@ def csc_compress(p_c_matrix, i):
 
 # p_c_matrix = build_p_c_matrix('data/assist2009_pid/assist2009_pid_train1.csv', 16891, 110)
 # print(csc_compress(p_c_matrix,-2))
+
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class GRUModel(nn.Module):
+    def __init__(self, num_knowledge_points, hidden_size):
+        super(GRUModel, self).__init__()
+        self.gru = nn.GRU(input_size=num_knowledge_points, hidden_size=hidden_size)
+        self.linear = nn.Linear(hidden_size, 1)
+        self.sigmoid = nn.Sigmoid()
+        self.slip = nn.Parameter(torch.tensor([0.2]))  # 失误率
+        self.guess = nn.Parameter(torch.tensor([0.2]))  # 猜测率
+
+    def forward(self, q_data, qa_data, pid_data, relation_matrix):
+        # 计算学生对知识点的掌握情况
+        hidden_state, _ = self.gru(q_data)
+
+        # 根据题目-知识点关联矩阵获取潜在作答情况
+        relevant_relations = relation_matrix[pid_data]
+        potential_responses = torch.matmul(hidden_state, relevant_relations.t())
+
+        # 计算学生答对题目的概率
+        slip_prob = self.sigmoid(self.slip)
+        guess_prob = self.sigmoid(self.guess)
+        response_probs = guess_prob + (1 - slip_prob - guess_prob) * potential_responses
+
+        # 预测学生答对题目的结果
+        predictions = torch.where(response_probs > 0.6, torch.ones_like(response_probs), torch.zeros_like(response_probs))
+
+        return predictions

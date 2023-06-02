@@ -18,7 +18,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='test DKT-DINA')
     parser.add_argument('--train_set', type=int, default=1)
     parser.add_argument('--seed', type=int, default=224, help='默认随机种子')
-    parser.add_argument('--max_iter', type=int, default=300, help='迭代次数')
+    parser.add_argument('--max_iter', type=int, default=1, help='迭代次数')
     parser.add_argument('--optim', type=str, default='adam', help='默认优化器')
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--lr', type=float, default=1e-5)
@@ -91,6 +91,7 @@ if __name__ == '__main__':
     file_name = ''
     for item_ in file_name_identifier:
         file_name = file_name + item_[0] + str(item_[1])
+    # print(file_name)
 
     # 构建题目-知识点关联矩阵，并写进csv文件中
     # paths = []
@@ -113,12 +114,12 @@ if __name__ == '__main__':
     train_q_data, train_qa_data, train_pid = dat.load_data(train_data_path)
     valid_q_data, valid_qa_data, valid_pid = dat.load_data(valid_data_path)
 
-    print("\n")
-    print("train_q_data.shape", train_q_data.shape)
-    print("train_qa_data.shape", train_qa_data.shape)
-    print("valid_q_data.shape", valid_q_data.shape)  # (1566, 200)
-    print("valid_qa_data.shape", valid_qa_data.shape)  # (1566, 200)
-    print("\n")
+    # print("\n")
+    # print("train_q_data.shape", train_q_data.shape)
+    # print("train_qa_data.shape", train_qa_data.shape)
+    # print("valid_q_data.shape", valid_q_data.shape)  # (1566, 200)
+    # print("valid_qa_data.shape", valid_qa_data.shape)  # (1566, 200)
+    # print("\n")
 
 
 
