@@ -35,11 +35,12 @@ class GRUDINA(nn.Module):
         self.slip = nn.Parameter(torch.tensor([0.2]))  # 失误率
         self.guess = nn.Parameter(torch.tensor([0.2]))  # 猜测率
 
-    def forward(self, q_data, qa_data, matrix, slip, guess, target, pid_data=None):
-        q_embed_data = self.pid_embedding(q_data)
+    def forward(self, q_data, qa_data, matrix, target, pid_data=None):
+        # Batch First
+        q_embed_data = self.pid_embedding(q_data)  # 知识点嵌入
 
         if self.separate_qa:
-            qa_embed_data = self.pid_embedding(qa_data)
+            qa_embed_data = self.pid_embedding(qa_data)  # 题目嵌入
             input_embed_data = torch.cat([q_embed_data, qa_embed_data], dim=-1)
         else:
             input_embed_data = q_embed_data

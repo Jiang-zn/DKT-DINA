@@ -114,6 +114,7 @@ if __name__ == '__main__':
     train_q_data, train_qa_data, train_pid = dat.load_data(train_data_path)
     valid_q_data, valid_qa_data, valid_pid = dat.load_data(valid_data_path)
 
+
     # print("\n")
     # print("train_q_data.shape", train_q_data.shape)
     # print("train_qa_data.shape", train_qa_data.shape)

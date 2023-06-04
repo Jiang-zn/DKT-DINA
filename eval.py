@@ -6,6 +6,8 @@ from sklearn import metrics
 from model import *
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
 # transpose_data_model = {'DKT-DINA'}
 
 # 二进制交叉熵损失函数
@@ -19,10 +21,12 @@ def binaryEntropy(target, pred, mod="avg"):
     else:
         assert False
 
+
 # 计算AUC
 def compute_auc(all_target, all_pred):
     # fpr, tpr, thresholds = metrics.roc_curve(all_target, all_pred, pos_label=1.0)
     return metrics.roc_auc_score(all_target, all_pred)
+
 
 # 计算准确率
 def compute_accuracy(all_target, all_pred):
@@ -34,10 +38,10 @@ def compute_accuracy(all_target, all_pred):
 def train(net, params, optimizer, q_data, qa_data, pid_data, label):
     net.train()
     pid_flag, model_type = model_isPid(params.model)
-    N = int(math.ceil(len(q_data) / params.batch_size))  # 一次epoch中的batch数，例如2994/24=124
-    q_data = q_data.T  # Shape: (200,3633)
-    qa_data = qa_data.T  # Shape: (200,3633)
-    # Shuffle the data，将题目数据和答案数据打乱顺序，增加数据随机性，减小模型过拟合的风险
+    N = int(math.ceil(len(q_data) / params.batch_size))  # 一次epoch中的batch数，例如200/24
+    # q_data = q_data.T  # 原data是(2994,200) Shape: (200,2994)
+    # qa_data = qa_data.T  # Shape: (200,2994)
+    # Shuffle the data，将题目数据和答案数据按列打乱顺序，增加数据随机性，减小模型过拟合的风险
     # shuffled_ind = np.arange(q_data.shape[1])
     # np.random.shuffle(shuffled_ind)
     # q_data = q_data[:, shuffled_ind]
@@ -45,6 +49,7 @@ def train(net, params, optimizer, q_data, qa_data, pid_data, label):
     if pid_flag:
         pid_data = pid_data.T
         # pid_data = pid_data[:, shuffled_ind]
+
     pred_list = []
     target_list = []
     element_count = 0
@@ -52,12 +57,12 @@ def train(net, params, optimizer, q_data, qa_data, pid_data, label):
     for idx in range(N):
         optimizer.zero_grad()
         q_one_seq = q_data[idx * params.batch_size:(idx + 1) * params.batch_size]
+        qa_one_seq = qa_data[idx * params.batch_size:(idx + 1) * params.batch_size]
         if pid_flag:
             pid_one_seq = pid_data[idx * params.batch_size:(idx + 1) * params.batch_size]
-        qa_one_seq = qa_data[idx * params.batch_size:(idx + 1) * params.batch_size]
 
-        # 这主要做的是转置操作将(seqlen，bs) Shape (bs, seqlen)
-        # 但是我们使用了batch_first=True，所以不需要执行这一步转置
+        # 这主要做的是转置操作将(200，bs) Shape (bs, 200)
+        # 使用了batch_first=True
         # if model_type in transpose_data_model:
         #     input_q = np.transpose(q_one_seq[:, :])  # Shape (bs, seqlen)
         #     input_qa = np.transpose(qa_one_seq[:, :])  # Shape (bs, seqlen)
@@ -65,17 +70,17 @@ def train(net, params, optimizer, q_data, qa_data, pid_data, label):
         #     if pid_flag:
         #         # Shape (seqlen, batch_size)
         #         input_pid = np.transpose(pid_one_seq[:, :])
-        # else:
+        # else: # 这一步有待研究
         #     input_q = (q_one_seq[:, :])  # Shape (seqlen, batch_size)
         #     input_qa = (qa_one_seq[:, :])  # Shape (seqlen, batch_size)
         #     target = (qa_one_seq[:, :])
         #     if pid_flag:
         #         input_pid = (pid_one_seq[:, :])  # Shape (seqlen, batch_size)
-        input_q = q_one_seq[:, :]
-        input_qa = qa_one_seq[:, :]
-        target = qa_one_seq[:, :]
+        input_q = np.transpose(q_one_seq[:, :])
+        input_qa = np.transpose(qa_one_seq[:, :])
+        target = np.transpose(qa_one_seq[:, :])
         if pid_flag:
-            input_pid = pid_one_seq[:, :]
+            input_pid = np.transpose(pid_one_seq[:, :])
 
         # 将target减1然后除以总知识数，这样可以将回答错误的标签映射到[0, 1]之间，
         # 回答正确的标签映射到[1, 2]之间，补的0映射到[-1, 0]之间
@@ -83,18 +88,19 @@ def train(net, params, optimizer, q_data, qa_data, pid_data, label):
         target = (target - 1) / params.n_question
         target_l = np.floor(target)
         el = np.sum(target_l >= -0.9)
-        element_count += el
+        element_count += el  # target中答对的总数
+
         input_q = torch.from_numpy(input_q).long().to(device)
         input_qa = torch.from_numpy(input_qa).long().to(device)
         target = torch.from_numpy(target).float().to(device)
         # if pid_flag:
         input_pid = torch.from_numpy(input_pid).long().to(device)
         # if pid_flag:
-        loss, pred, true_ct = net(input_q, input_qa, matrix, slip, guess, target, input_pid)
+        loss, pred, true_ct = net(input_q, input_qa, matrix, target, input_pid)
 
         pred = pred.cpu().detach().numpy()
         loss.backward()
-        true_el += true_ct.cpu().numpy()
+        true_el += true_ct.cpu().numpy()  # 预测答对的总数
         optimizer.step()
         # correct: 1.0; wrong 0.0; padding -1.0
         target = target_l.reshape((-1,))
@@ -117,12 +123,12 @@ def train(net, params, optimizer, q_data, qa_data, pid_data, label):
 
 
 def test(net, params, optimizer, q_data, qa_data, pid_data, label):
-    # dataArray: [ array([[],[],..])] Shape: (3633, 200)
+    # dataArray: [ array([[],[],..])] Shape: (2994, 200)
     pid_flag, model_type = model_isPid(params.model)
     net.eval()
     N = int(math.ceil(float(len(q_data)) / float(params.batch_size)))
-    q_data = q_data.T  # Shape: (200,3633)
-    qa_data = qa_data.T  # Shape: (200,3633)
+    q_data = q_data.T  # Shape: (200,2994)
+    qa_data = qa_data.T  # Shape: (200,2994)
     if pid_flag:
         pid_data = pid_data.T
     seq_num = q_data.shape[1]
@@ -134,29 +140,31 @@ def test(net, params, optimizer, q_data, qa_data, pid_data, label):
     element_count = 0
     for idx in range(N):
         q_one_seq = q_data[:, idx * params.batch_size:(idx + 1) * params.batch_size]
+        qa_one_seq = qa_data[:, idx * params.batch_size:(idx + 1) * params.batch_size]
         if pid_flag:
-            pid_one_seq = pid_data[:, idx *
-                                      params.batch_size:(idx + 1) * params.batch_size]
-        input_q = q_one_seq[:, :]  # Shape (seqlen, batch_size)
-        qa_one_seq = qa_data[:, idx *
-                                params.batch_size:(idx + 1) * params.batch_size]
-        input_qa = qa_one_seq[:, :]  # Shape (seqlen, batch_size)
+            pid_one_seq = pid_data[:, idx * params.batch_size:(idx + 1) * params.batch_size]
 
-        # print 'seq_num', seq_num
-        if model_type in transpose_data_model:
-            # Shape (seqlen, batch_size)
-            input_q = np.transpose(q_one_seq[:, :])
-            # Shape (seqlen, batch_size)
-            input_qa = np.transpose(qa_one_seq[:, :])
-            target = np.transpose(qa_one_seq[:, :])
-            if pid_flag:
-                input_pid = np.transpose(pid_one_seq[:, :])
-        else:
-            input_q = (q_one_seq[:, :])  # Shape (seqlen, batch_size)
-            input_qa = (qa_one_seq[:, :])  # Shape (seqlen, batch_size)
-            target = (qa_one_seq[:, :])
-            if pid_flag:
-                input_pid = (pid_one_seq[:, :])
+        # 这主要做的是转置操作将(200，bs) Shape (bs, 200)
+        # 使用了batch_first=True
+        # if model_type in transpose_data_model:
+        #     input_q = np.transpose(q_one_seq[:, :])  # Shape (bs, seqlen)
+        #     input_qa = np.transpose(qa_one_seq[:, :])  # Shape (bs, seqlen)
+        #     target = np.transpose(qa_one_seq[:, :])
+        #     if pid_flag:
+        #         # Shape (seqlen, batch_size)
+        #         input_pid = np.transpose(pid_one_seq[:, :])
+        # else: # 这一步有待研究
+        #     input_q = (q_one_seq[:, :])  # Shape (seqlen, batch_size)
+        #     input_qa = (qa_one_seq[:, :])  # Shape (seqlen, batch_size)
+        #     target = (qa_one_seq[:, :])
+        #     if pid_flag:
+        #         input_pid = (pid_one_seq[:, :])  # Shape (seqlen, batch_size)
+        input_q = np.transpose(q_one_seq[:, :])
+        input_qa = np.transpose(qa_one_seq[:, :])
+        target = np.transpose(qa_one_seq[:, :])
+        if pid_flag:
+            input_pid = np.transpose(pid_one_seq[:, :])
+
         target = (target - 1) / params.n_question
         target_1 = np.floor(target)
         # target = np.random.randint(0,2, size = (target.shape[0],target.shape[1]))
@@ -168,10 +176,12 @@ def test(net, params, optimizer, q_data, qa_data, pid_data, label):
             input_pid = torch.from_numpy(input_pid).long().to(device)
 
         with torch.no_grad():
-            if pid_flag:
-                loss, pred, ct = net(input_q, input_qa, target, input_pid)
-            else:
-                loss, pred, ct = net(input_q, input_qa, target)
+            loss, pred, true_ct = net(input_q, input_qa, matrix, target, input_pid)
+
+            # if pid_flag:
+            #     loss, pred, ct = net(input_q, input_qa, target, input_pid)
+            # else:
+            #     loss, pred, ct = net(input_q, input_qa, target)
         pred = pred.cpu().numpy()  # (seqlen * batch_size, 1)
         true_el += ct.cpu().numpy()
         # target = target.cpu().numpy()
@@ -371,35 +381,3 @@ def csc_compress(p_c_matrix, i):
 
 # p_c_matrix = build_p_c_matrix('data/assist2009_pid/assist2009_pid_train1.csv', 16891, 110)
 # print(csc_compress(p_c_matrix,-2))
-
-
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-
-class GRUModel(nn.Module):
-    def __init__(self, num_knowledge_points, hidden_size):
-        super(GRUModel, self).__init__()
-        self.gru = nn.GRU(input_size=num_knowledge_points, hidden_size=hidden_size)
-        self.linear = nn.Linear(hidden_size, 1)
-        self.sigmoid = nn.Sigmoid()
-        self.slip = nn.Parameter(torch.tensor([0.2]))  # 失误率
-        self.guess = nn.Parameter(torch.tensor([0.2]))  # 猜测率
-
-    def forward(self, q_data, qa_data, pid_data, relation_matrix):
-        # 计算学生对知识点的掌握情况
-        hidden_state, _ = self.gru(q_data)
-
-        # 根据题目-知识点关联矩阵获取潜在作答情况
-        relevant_relations = relation_matrix[pid_data]
-        potential_responses = torch.matmul(hidden_state, relevant_relations.t())
-
-        # 计算学生答对题目的概率
-        slip_prob = self.sigmoid(self.slip)
-        guess_prob = self.sigmoid(self.guess)
-        response_probs = guess_prob + (1 - slip_prob - guess_prob) * potential_responses
-
-        # 预测学生答对题目的结果
-        predictions = torch.where(response_probs > 0.6, torch.ones_like(response_probs), torch.zeros_like(response_probs))
-
-        return predictions
