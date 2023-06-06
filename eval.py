@@ -35,12 +35,12 @@ def compute_accuracy(all_target, all_pred):
     return metrics.accuracy_score(all_target, all_pred)
 
 
-def train(net, params, optimizer, q_data, qa_data, pid_data, label):
+def train(net, params, optimizer, q_data, qa_data, pid_data, matrix, label):
     net.train()
     pid_flag, model_type = model_isPid(params.model)
     N = int(math.ceil(len(q_data) / params.batch_size))  # 一次epoch中的batch数，例如200/24
-    # q_data = q_data.T  # 原data是(2994,200) Shape: (200,2994)
-    # qa_data = qa_data.T  # Shape: (200,2994)
+    q_data = q_data.T  # 原data是(2994,200) Shape: (200,2994)
+    qa_data = qa_data.T  # Shape: (200,2994)
     # Shuffle the data，将题目数据和答案数据按列打乱顺序，增加数据随机性，减小模型过拟合的风险
     # shuffled_ind = np.arange(q_data.shape[1])
     # np.random.shuffle(shuffled_ind)
@@ -102,9 +102,9 @@ def train(net, params, optimizer, q_data, qa_data, pid_data, label):
         loss.backward()
         true_el += true_ct.cpu().numpy()  # 预测答对的总数
         optimizer.step()
-        # correct: 1.0; wrong 0.0; padding -1.0
+        # correct: 1.0; wrong 0.0; padding -1.0  将target_1重塑为一维数组
         target = target_l.reshape((-1,))
-
+        # 将预测值和目标值中的有效数据（即非填充值）提取出来，并分别存储在pred_list和target_list中
         nopadding_index = np.flatnonzero(target >= -0.9)
         nopadding_index = nopadding_index.tolist()
         pred_nopadding = pred[nopadding_index]
@@ -113,6 +113,7 @@ def train(net, params, optimizer, q_data, qa_data, pid_data, label):
         pred_list.append(pred_nopadding)
         target_list.append(target_nopadding)
 
+    # all_pred和all_target将包含所有数组在行方向上连接而成的结果
     all_pred = np.concatenate(pred_list, axis=0)
     all_target = np.concatenate(target_list, axis=0)
     loss = binaryEntropy(all_target, all_pred)
@@ -240,7 +241,7 @@ def train_one_dataset(params, file_name, train_q_data, train_qa_data, train_pid,
         start_time = time.time()
         # Train Model
         train_loss, train_accuracy, train_auc = train(model, params, optimizer, train_q_data, train_qa_data, train_pid,
-                                                      label='Train')
+                                                      matrix, label='Train')
         # Validatation
         valid_loss, valid_accuracy, valid_auc = test(model, params, optimizer, valid_q_data, valid_qa_data, valid_pid,
                                                      label='Valid')
@@ -372,12 +373,3 @@ def load_model(params):
     else:
         model = None
     return model
-
-
-# 列压缩格式压缩矩阵,传入要压缩的下标i以及p_c_matrix，则对p_c_matrix[i]进行压缩
-def csc_compress(p_c_matrix, i):
-    p_c_matrix_csc = sparse.csc_matrix(p_c_matrix[i])
-    return p_c_matrix_csc
-
-# p_c_matrix = build_p_c_matrix('data/assist2009_pid/assist2009_pid_train1.csv', 16891, 110)
-# print(csc_compress(p_c_matrix,-2))

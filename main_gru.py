@@ -107,13 +107,12 @@ if __name__ == '__main__':
     # np.savetxt('p_c_matrix.csv', p_c_matrix, delimiter=',', fmt='%.1f')
     # 读取这个文件中的数据
     # 把题目-知识点关联矩阵读取出来
-    p_c_matrix = np.loadtxt('p_c_matrix.csv', delimiter=',')
+    p_c_matrix = np.loadtxt('p_c_matrix.csv', delimiter=',')  # shape(16892, 111),但实际上是16891个题目，110个知识点
 
     train_data_path = params.data_dir + "/" + params.data_name + "_train1" + ".csv"
     valid_data_path = params.data_dir + "/" + params.data_name + "_valid1" + ".csv"
     train_q_data, train_qa_data, train_pid = dat.load_data(train_data_path)
     valid_q_data, valid_qa_data, valid_pid = dat.load_data(valid_data_path)
-
 
     # print("\n")
     # print("train_q_data.shape", train_q_data.shape)
@@ -121,8 +120,6 @@ if __name__ == '__main__':
     # print("valid_q_data.shape", valid_q_data.shape)  # (1566, 200)
     # print("valid_qa_data.shape", valid_qa_data.shape)  # (1566, 200)
     # print("\n")
-
-
 
     # best_epoch = train_one_dataset(params, file_name, train_q_data, train_qa_data, train_pid, valid_q_data,
     #                                valid_qa_data, valid_pid)

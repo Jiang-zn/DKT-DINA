@@ -213,7 +213,7 @@ class PID_DATA(object):
                     for pid, qid in zip(P, Q):
                         init_matrix[int(pid)][int(qid)] = 1
                 # 把p_c_matrix存到csv文件中
-                # np.savetxt('p_c_matrix.csv', p_c_matrix, delimiter=',')
+                np.savetxt('p_c_matrix.csv', p_c_matrix, delimiter=',')
                 # 题目-知识点关联矩阵(每一个学生都有一个，会不会太冗余？）
                 # 构建一个二维矩阵，把P中的最大值是这个二维矩阵的行数，Q中的最大值作为这个二维矩阵的列数
                 # max_P = 0
