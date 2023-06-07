@@ -28,8 +28,10 @@ class GRUDINA(nn.Module):
                               )
         if self.rnn is None:
             raise ValueError("cell type only support lstm, rnn or gru type.")
-        self.pid_embedding = nn.Embedding(self.input_dim, self.hidden_dim)
-        self.q_embedding = nn.Embedding(self.output_dim, self.hidden_dim)
+        # 题目嵌入，知识点嵌入
+        self.pid_embedding = nn.Embedding(self.input_dim + 1, self.hidden_dim)
+        self.q_embedding = nn.Embedding(self.output_dim + 1, self.hidden_dim)
+        self.qa_embedding = nn.Embedding(2 * self.output_dim + 1, hidden_dim)
 
         self.fc = nn.Linear(self.hidden_dim, self.output_dim)
         self.slip = nn.Parameter(torch.tensor([0.2]))  # 失误率
@@ -37,27 +39,46 @@ class GRUDINA(nn.Module):
 
     def forward(self, q_data, qa_data, matrix, target, pid_data=None):
         # Batch First
-        q_embed_data = self.pid_embedding(q_data)  # 知识点嵌入
-
-        if self.separate_qa:
-            qa_embed_data = self.pid_embedding(qa_data)  # 题目嵌入
-            input_embed_data = torch.cat([q_embed_data, qa_embed_data], dim=-1)
+        q_embed_data = self.q_embedding(q_data)  # 知识点嵌入
+        qa_embed_data = self.qa_embedding(qa_data)  # 回答序列嵌入
+        if pid_data is not None:  # 题目嵌入
+            pid_embed_data = self.pid_embedding(pid_data)
         else:
-            input_embed_data = q_embed_data
+            pid_embed_data = None
+
+        # concatenate embedding
+        if self.separate_qa:  # TRUE，把题目和回答序列分开处理
+            input_embed_data = qa_embed_data
+        else:  # FALSE，把题目和回答序列拼接在一起
+            input_embed_data = torch.cat([q_embed_data, qa_embed_data, pid_embed_data], dim=-1)
 
         # 计算学生对知识点的掌握情况
         gru_out, _ = self.rnn(input_embed_data)
-
-        p_c_relations = matrix[pid_data]
+        gru_out=self.fc(gru_out)
         # 进行矩阵乘法
-        potential_responses = torch.matmul(gru_out, p_c_relations.t())
         # 学生的潜在作答情况，值大于0.6就设置为1，否则不做调整
+        p_c_relations = matrix
+        potential_responses = torch.bmm(gru_out, p_c_relations.t())
         potential_responses = np.where(potential_responses > 0, 1, potential_responses)
+
         # 计算学生答对题目的概率
         slip_prob = self.sigmoid(self.slip)
         guess_prob = self.sigmoid(self.guess)
         response_probs = (1 - slip_prob) * potential_responses + guess_prob * (1 - potential_responses)
         output = self.fc(response_probs)
+        labels = target.reshape(-1)
+        m = nn.Sigmoid()
+        preds = (output.reshape(-1))  # logit
+        mask = labels > -0.9
+        masked_labels = labels[mask].float()
+        masked_preds = preds[mask]
+        loss = nn.BCEWithLogitsLoss(reduction='none')
+        output = loss(masked_preds, masked_labels)
+        # l2正则化
+        # l2_loss = torch.tensor(0.)
+        # for param in self.parameters():
+        #     l2_loss += torch.norm(param, p=2)  # Calculate L2 norm for each parameter
+        # output = output.mean() + self.l2 * l2_loss
 
         # slip_probs = slip.unsqueeze(0)
         # guess_probs = guess.unsqueeze(0)
@@ -65,7 +86,4 @@ class GRUDINA(nn.Module):
         # combined_probs = slip_probs * guess_probs + (1 - slip_probs) * (1 - guess_probs)
         # dina_output = predicted_probs * combined_probs + (1 - predicted_probs) * (1 - combined_probs)
         # output = self.fc(dina_output)
-        return output
-
-    def estimate_dina_params(self, qa_data, matrix):
-        pass
+        return output.sum(), m(preds), mask.sum()

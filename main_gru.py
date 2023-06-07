@@ -113,7 +113,10 @@ if __name__ == '__main__':
     valid_data_path = params.data_dir + "/" + params.data_name + "_valid1" + ".csv"
     train_q_data, train_qa_data, train_pid = dat.load_data(train_data_path)
     valid_q_data, valid_qa_data, valid_pid = dat.load_data(valid_data_path)
-
+    print(train_pid[0])
+    print(train_q_data[0])
+    print(train_qa_data[0])
+    print(np.floor((train_qa_data[0] - 1) / 110))
     # print("\n")
     # print("train_q_data.shape", train_q_data.shape)
     # print("train_qa_data.shape", train_qa_data.shape)
