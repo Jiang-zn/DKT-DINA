@@ -95,6 +95,7 @@ def train(net, params, optimizer, q_data, qa_data, pid_data, matrix, label):
         target = torch.from_numpy(target).float().to(device)
         # if pid_flag:
         input_pid = torch.from_numpy(input_pid).long().to(device)
+
         # if pid_flag:
         loss, pred, true_ct = net(input_q, input_qa, matrix, target, input_pid)
 
@@ -367,9 +368,9 @@ def load_model(params):
         model = DKTIRT(n_question=params.n_question, n_pid=params.n_pid, dropout=params.dropout).to(
             device)
     elif model_type in {'gd'}:
-        model = GRUDINA(input_dim=params.n_pid, dropout=params.dropout, hidden_dim=params.hidden_dim,
-                        num_layers=params.num_layers, output_dim=params.n_question,
-                        l2=params.l2).to(device)
+        model = GRUDINA(n_pid=params.n_pid, n_question=params.n_question, q_embed_dim=params.q_embed_dim,
+                        qa_embed_dim=params.qa_embed_dim, dropout=params.dropout, hidden_dim=params.hidden_dim,
+                        output_dim=params.output_dim, num_layers=params.num_layers, l2=params.l2).to(device)
     else:
         model = None
     return model
