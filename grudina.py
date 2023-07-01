@@ -2,6 +2,15 @@
 import numpy as np
 import torch
 import torch.nn as nn
+from torch.nn.init import xavier_uniform_
+from torch.nn.init import constant_
+from torch.nn.init import xavier_normal_
+import math
+import torch.nn.functional as F
+from enum import IntEnum
+import numpy as np
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class GRUDINA(nn.Module):
@@ -49,6 +58,8 @@ class GRUDINA(nn.Module):
         self.fc = nn.Linear(self.hidden_dim, self.output_dim)
 
     def forward(self, q_data, qa_data, matrix, target, pid_data=None):
+        BS = q_data.size(0)  # batch_size
+        seqencelen = q_data.size(1)  # 序列长度
         # Batch First
         q_embed_data = self.q_embedding(q_data)  # c_ct,知识点嵌入,[BS, seqlen,  q_embed_dim]
         # 回答序列嵌入（概念响应嵌入）[BS, seqlen,  q_embed_dim],  g_rt + c_ct = e_(ct,rt)
@@ -82,7 +93,7 @@ class GRUDINA(nn.Module):
         guess = []
         slip = []
         pred = []
-        for bs in range(32):  # self.batch_size,,,,,能否改进
+        for bs in range(BS):  # self.batch_size,,,,,能否改进
             # 取出当前学生的 gru_out
             gru_out_student = gru_out[bs]  # 形状为 [seqlen, output_dim]
             # 进行矩阵点乘运算，注意需要将 gru_out_student 调整为正确的形状
@@ -94,11 +105,11 @@ class GRUDINA(nn.Module):
             # 初始化猜测率和失误率为0，取出当前学生的答案序列、知识点序列
             q_data_one = q_data[bs]  # 形状为 [seqlen]
             qa_data_one = qa_data[bs]  # 形状为 [seqlen]
-            guessing_rate_one = torch.zeros(self.seq_len, self.output_dim)
-            slipping_rate_one = torch.zeros(self.seq_len, self.output_dim)
+            guessing_rate_one = torch.zeros(seqencelen, self.output_dim)
+            slipping_rate_one = torch.zeros(seqencelen, self.output_dim)
             result_one = []
             current_master = got_student  # 学生的概念掌握情况
-            for t in range(self.seq_len):
+            for t in range(seqencelen):
                 if t >= 1:
                     guessing_rate_one[t] = guessing_rate_one[t - 1]
                     slipping_rate_one[t] = slipping_rate_one[t - 1]
@@ -133,8 +144,8 @@ class GRUDINA(nn.Module):
                 # 输出当前时间步所回答的该知识点的预测结果
                 # prediction=(1 - slip) * (concept_master * guess + (1 - slip) * (1 - concept_master))
                 result_one.append((1 - slipping_rate_one[t][current_q - 1]) * (
-                            current_master[t][current_q - 1] * guessing_rate_one[t][current_q - 1] + (
-                                1 - slipping_rate_one[t][current_q - 1]) * (1 - current_master[t][current_q - 1])))
+                        current_master[t][current_q - 1] * guessing_rate_one[t][current_q - 1] + (
+                        1 - slipping_rate_one[t][current_q - 1]) * (1 - current_master[t][current_q - 1])))
 
             pred.append(result_one)
             guess.append(guessing_rate_one)
@@ -150,15 +161,17 @@ class GRUDINA(nn.Module):
 
         # 学生的潜在作答情况，值大于0.6就设置为1，否则不做调整
         # potential_responses = np.where(potential_responses > 0, 1, potential_responses)
-        pred = troch.stack(pred, dim=0)
+        pred = torch.stack([torch.tensor(p) for p in pred], dim=0)
         preds = pred.reshape(-1)
         labels = target.reshape(-1)
         m = nn.Sigmoid()
         mask = labels > -0.9
         masked_labels = labels[mask].float()
         masked_preds = preds[mask]
-        loss = nn.BCEWithLogitsLoss(reduction='none')
-        output = loss(masked_preds, masked_labels)
+        #MSELoss
+        criterion = nn.MSELoss(reduction='none')
+        criterion.to(device)
+        loss = criterion(masked_preds, masked_labels)
 
         # slip_probs = slip.unsqueeze(0)
         # guess_probs = guess.unsqueeze(0)

@@ -4,32 +4,143 @@ import os.path
 import glob
 import logging
 import argparse
+import time
 import numpy as np
 import torch
-from model import *
 from load_data import *
 from eval import *
+from model import *
+from utils import *
+from grudina import GRUDINA
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
 # assert torch.cuda.is_available(), "No Cuda available, AssertionError"
+
+
+# 进行params.max_iter次迭代，每次迭代都会进行一次完整的训练和一次完整的验证，
+# 记录每次迭代的训练和验证的loss、accuracy、auc，
+# 在训练过程中定期保存最好的模型，并删除之前保存的模型，以避免存储大量模型文件
+# 输出到底是哪一次epoch的模型最好
+def train_one_dataset(params, file_name, train_q_data, train_qa_data, train_pid, valid_q_data, valid_qa_data,
+                      valid_pid, matrix):
+    # ================================== model initialization ==================================
+
+    model = load_model(params)
+    optimizer = torch.optim.Adam(model.parameters(), lr=params.lr, betas=(0.9, 0.999), eps=1e-08)
+    print("\n")
+
+    # ================================== training ==================================
+    all_train_loss = {}
+    all_train_accuracy = {}
+    all_train_auc = {}
+    all_valid_loss = {}
+    all_valid_accuracy = {}
+    all_valid_auc = {}
+    best_valid_auc = 0
+    matrix = matrix
+    for index in range(params.max_iter):
+        # 设置每一次迭代的开始时间，最后获取结束时间，计算训练时间，输出格式为时分秒
+        start_time = time.time()
+        print('time')
+        # Train Model
+        train_loss, train_accuracy, train_auc = train(model, params, optimizer, train_q_data, train_qa_data, train_pid,
+                                                      matrix, label='Train')
+        # Validatation
+        valid_loss, valid_accuracy, valid_auc = test(model, params, optimizer, valid_q_data, valid_qa_data, valid_pid,
+                                                     matrix, label='Valid')
+
+        print('epoch', idx + 1)
+        print("valid_auc\t", valid_auc, "\ttrain_auc\t", train_auc)
+        print("valid_accuracy\t", valid_accuracy, "\ttrain_accuracy\t", train_accuracy)
+        print("valid_loss\t", valid_loss, "\ttrain_loss\t", train_loss)
+        print("time\t", time.strftime("%Hh %Mm %Ss", time.gmtime(time.time() - start_time)))
+        try_makedirs('model')
+        try_makedirs(os.path.join('model', params.model))
+        try_makedirs(os.path.join('model', params.model, params.save))
+
+        all_valid_auc[idx + 1] = valid_auc
+        all_train_auc[idx + 1] = train_auc
+        all_valid_loss[idx + 1] = valid_loss
+        all_train_loss[idx + 1] = train_loss
+        all_valid_accuracy[idx + 1] = valid_accuracy
+        all_train_accuracy[idx + 1] = train_accuracy
+
+        # output the epoch with the best validation auc
+        # 在训练过程中定期保存最好的模型，并删除之前保存的模型，以避免存储大量模型文件
+        if valid_auc > best_valid_auc:
+            path = os.path.join('model', params.model,
+                                params.save, file_name) + '_*'
+            for i in glob.glob(path):
+                os.remove(i)
+            best_valid_auc = valid_auc
+            best_epoch = idx + 1
+            torch.save({'epoch': idx,
+                        'model_state_dict': model.state_dict(),
+                        'optimizer_state_dict': optimizer.state_dict(),
+                        'loss': train_loss,
+                        },
+                       os.path.join('model', params.model, params.save,
+                                    file_name) + '_' + str(idx + 1)
+                       )
+        # 提高模型的泛化能力，模型在过去40轮训练中没有表现更好的时候，就会停止训练并跳出循环。这是为了避免模型在过拟合的情况下继续训练
+        if idx - best_epoch > 40:
+            break
+
+    try_makedirs('result')
+    try_makedirs(os.path.join('result', params.model))
+    try_makedirs(os.path.join('result', params.model, params.save))
+    f_save_log = open(os.path.join(
+        'result', params.model, params.save, file_name), 'w')
+    f_save_log.write("valid_auc:\n" + str(all_valid_auc) + "\n\n")
+    f_save_log.write("train_auc:\n" + str(all_train_auc) + "\n\n")
+    f_save_log.write("valid_loss:\n" + str(all_valid_loss) + "\n\n")
+    f_save_log.write("train_loss:\n" + str(all_train_loss) + "\n\n")
+    f_save_log.write("valid_accuracy:\n" + str(all_valid_accuracy) + "\n\n")
+    f_save_log.write("train_accuracy:\n" + str(all_train_accuracy) + "\n\n")
+    f_save_log.close()
+    return best_epoch
+
+
+# 加载之前训练好的模型权重，以便继续训练或进行预测，
+# 在训练模型时，我们通常会将每个epoch训练的模型保存下来，以便之后进行评估或继续训练。
+# 但是如果不加控制，这些模型文件可能会占用很大的磁盘空间，因此需要定期删除旧的模型文件
+def test_one_dataset(params, file_name, test_q_data, test_qa_data, test_pid, best_epoch):
+    print("\n\nStart testing ......................\n Best epoch:", best_epoch)
+    model = load_model(params)
+
+    checkpoint = torch.load(os.path.join(
+        'model', params.model, params.save, file_name) + '_' + str(best_epoch))
+    model.load_state_dict(checkpoint['model_state_dict'])
+
+    test_loss, test_accuracy, test_auc = test(model, params, None, test_q_data, test_qa_data, test_pid, label='Test')
+    print("\ntest_auc\t", test_auc)
+    print("test_accuracy\t", test_accuracy)
+    print("test_loss\t", test_loss)
+    # Now Delete all the models
+    path = os.path.join('model', params.model, params.save, file_name) + '_*'
+    for i in glob.glob(path):
+        os.remove(i)
+
 
 if __name__ == '__main__':
     # 参数设置 Parse Arguments Basic Parameters Common parameters Datasets and Model
-    parser = argparse.ArgumentParser(description='test DKT-DINA')
+    parser = argparse.ArgumentParser(description='test Gru-Dina')
     parser.add_argument('--train_set', type=int, default=1)
     parser.add_argument('--seed', type=int, default=224, help='默认随机种子')
     parser.add_argument('--max_iter', type=int, default=1, help='迭代次数')
     parser.add_argument('--optim', type=str, default='adam', help='默认优化器')
-    parser.add_argument('--batch_size', type=int, default=32)
+    parser.add_argument('--batch_size', type=int, default=24)
     parser.add_argument('--lr', type=float, default=1e-5)
-    parser.add_argument('--model', type=str, default='GRU-DINA_pid',
+    parser.add_argument('--model', type=str, default='GruDina_pid',
                         help="combination of akt/dkvmn/dkt, pid/cid separated by underscore '_'. For example tf_pid")
     parser.add_argument('--dataset', type=str, default="assist2009_pid")
 
     parser.add_argument('--dropout', type=float, default=0.5)
     parser.add_argument('--qa_embed_dim', type=int, default=256, help='answer and question embedding dimensions')
     parser.add_argument('--q_embed_dim', type=int, default=50, help='question embedding dimensions')
-    parser.add_argument('--num_layers', type=int, default=1, help='隐藏层层数')
+    parser.add_argument('--num_layers', type=int, default=2, help='隐藏层层数')
     parser.add_argument('--hidden_dim', type=int, default=256)
     parser.add_argument('--output_dim', type=int, default=110, help='output dimensions')
     parser.add_argument('--bidirectional', type=bool, default=False, help='是否使用双向RNN模型')
@@ -109,26 +220,27 @@ if __name__ == '__main__':
     # 读取这个文件中的数据
     # 把题目-知识点关联矩阵读取出来
     p_c_matrix = np.loadtxt('p_c_matrix.csv', delimiter=',')  # shape(16892, 111),但实际上是16891个题目，110个知识点
+    prerequisite_relation_matrix = np.loadtxt('prerequisite-relation.csv', delimiter=',')  # shape(110, 110)
 
     train_data_path = params.data_dir + "/" + params.data_name + "_train1" + ".csv"
-    # valid_data_path = params.data_dir + "/" + params.data_name + "_valid1" + ".csv"
-    train_q_data, train_qa_data, train_pid= dat.load_data(train_data_path)
+    valid_data_path = params.data_dir + "/" + params.data_name + "_valid1" + ".csv"
+    train_q_data, train_qa_data, train_pid = dat.load_data(train_data_path)
+    valid_q_data, valid_qa_data, valid_pid = dat.load_data(valid_data_path)
 
-    # valid_q_data, valid_qa_data, valid_pid = dat.load_data(valid_data_path)
-    # print(train_pid[0])
-    # print(train_q_data[0])
-    # print(train_qa_data[0])
-    # print(np.floor((train_qa_data[0] - 1) / 110))
-
-    # print("\n")
-    # print("train_q_data.shape", train_q_data.shape)
-    # print("train_qa_data.shape", train_qa_data.shape)
-    # print("valid_q_data.shape", valid_q_data.shape)  # (1566, 200)
-    # print("valid_qa_data.shape", valid_qa_data.shape)  # (1566, 200)
-    # print("\n")
-
-    # best_epoch = train_one_dataset(params, file_name, train_q_data, train_qa_data, train_pid, valid_q_data,
-    #                                valid_qa_data, valid_pid)
+    print("\n")
+    print("train_q_data.shape", train_q_data.shape)
+    print("train_qa_data.shape", train_qa_data.shape)
+    print("valid_q_data.shape", valid_q_data.shape)  # (1566, 200)
+    print("valid_qa_data.shape", valid_qa_data.shape)  # (1566, 200)
+    print("\n")
+    # print(train_q_data[:6,:])
+    # print(train_q_data[6:12,:])
+    # print(train_q_data[12:18,:])
+    # print(train_q_data[18:24,:])
+    # print(train_q_data[24:30,:])
+    # print(train_q_data[30:32,:])
+    best_epoch = train_one_dataset(params, file_name, train_q_data, train_qa_data, train_pid, valid_q_data,
+                                   valid_qa_data, valid_pid, prerequisite_relation_matrix)
     # test_data_path = params.data_dir + "/" + params.data_name + "_test" + str(filenums) + ".csv"
     # test_q_data, test_qa_data, test_pid = dat.load_data(test_data_path)
     # test_one_dataset(params, file_name, test_q_data, test_qa_data, test_pid, best_epoch)
