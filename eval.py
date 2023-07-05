@@ -5,8 +5,9 @@ import torch
 from sklearn import metrics
 from grudina import GRUDINA
 from utils import model_isPid
+import time
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device= [0, 1, 2]
 
 
 # transpose_data_model = {'DKT-DINA'}
@@ -39,7 +40,8 @@ def compute_accuracy(all_target, all_pred):
 def train(net, params, optimizer, q_data, qa_data, pid_data, matrix, label):
     net.train()
     pid_flag, model_type = model_isPid(params.model)
-    N = int(math.ceil(len(q_data) / params.batch_size))  # 一次epoch中的batch数，例如200/24
+    N = int(math.ceil(len(q_data) / params.batch_size))  # 一次epoch中的batch数，例如2994/24
+    print('batch_size的数量', N)
     q_data = q_data.T  # 原data是(2994,200) Shape: (200,2994)
     qa_data = qa_data.T  # Shape: (200,2994)
     # Shuffle the data，将题目数据和答案数据按列打乱顺序，增加数据随机性，减小模型过拟合的风险
@@ -55,13 +57,15 @@ def train(net, params, optimizer, q_data, qa_data, pid_data, matrix, label):
     target_list = []
     element_count = 0
     true_el = 0
+    start_time = time.time()
+    print('time', time.strftime("%Hh %Mm %Ss", time.gmtime(start_time)))
     for idx in range(N):
         optimizer.zero_grad()
-        q_one_seq = q_data[idx * params.batch_size:(idx + 1) * params.batch_size]
-        qa_one_seq = qa_data[idx * params.batch_size:(idx + 1) * params.batch_size]
+        q_one_seq = q_data[:, idx * params.batch_size:(idx + 1) * params.batch_size]
+        qa_one_seq = qa_data[:, idx * params.batch_size:(idx + 1) * params.batch_size]
         if pid_flag:
-            pid_one_seq = pid_data[idx * params.batch_size:(idx + 1) * params.batch_size]
-
+            pid_one_seq = pid_data[:, idx * params.batch_size:(idx + 1) * params.batch_size]
+        print('第', idx + 1, '个batch')
         # 这主要做的是转置操作将(200，bs) Shape (bs, 200)
         # 使用了batch_first=True
         # if model_type in transpose_data_model:
@@ -91,16 +95,15 @@ def train(net, params, optimizer, q_data, qa_data, pid_data, matrix, label):
         el = np.sum(target_l >= -0.9)
         element_count += el  # target中答对的总数
 
-        input_q = torch.from_numpy(input_q).long().to(device)
-        input_qa = torch.from_numpy(input_qa).long().to(device)
-        target = torch.from_numpy(target).float().to(device)
-        matrix = torch.from_numpy(matrix).float().to(device)
+        input_q = torch.from_numpy(input_q).long().to(device[1])
+        input_qa = torch.from_numpy(input_qa).long().to(device[1])
+        target = torch.from_numpy(target).float().to(device[1])
+        matrix = torch.as_tensor(matrix, dtype=torch.float32, device=device[1])
         # if pid_flag:
-        input_pid = torch.from_numpy(input_pid).long().to(device)
-
+        input_pid = torch.from_numpy(input_pid).long().to(device[1])
         # if pid_flag:
         loss, prediction, true_ct = net(input_q, input_qa, matrix, target, input_pid)
-
+        print('train finished compute loss')
         prediction = prediction.cpu().detach().numpy()
         loss.backward()
         true_el += true_ct.cpu().numpy()  # 预测答对的总数
@@ -112,12 +115,24 @@ def train(net, params, optimizer, q_data, qa_data, pid_data, matrix, label):
         nopadding_index = nopadding_index.tolist()
         pred_nopadding = prediction[nopadding_index]
         target_nopadding = target[nopadding_index]
-
+        # 元素值大于0.5的预测值设置为1，否则设置为0
+        pred_nopadding = np.where(pred_nopadding > 0.5, 1, 0)
+        # pred_nopadding与target_nopadding，统计相对应的位置值不一样的数量，也就是预测错误
+        error_count = 0
+        error_count = np.sum(pred_nopadding != target_nopadding)
+        print('len(pred_nopadding): ', len(pred_nopadding))
+        print('error_count: ', error_count)
         pred_list.append(pred_nopadding)
         target_list.append(target_nopadding)
 
+        # 减去start_time,看用时几分几秒
+        print('elapsed_time', time.strftime("%Hh %Mm %Ss", time.gmtime(time.time() - start_time)))
+
+
+
     # all_pred和all_target将包含所有数组在行方向上连接而成的结果
     all_pred = np.concatenate(pred_list, axis=0)
+
     all_target = np.concatenate(target_list, axis=0)
     loss = binaryEntropy(all_target, all_pred)
     auc = compute_auc(all_target, all_pred)

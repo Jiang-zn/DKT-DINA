@@ -1,8 +1,9 @@
 import os
 import torch
+import torch.nn as nn
 from grudina import GRUDINA
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = [0,1,2]
 
 
 # 若文件夹不存在则创建文件夹
@@ -47,7 +48,9 @@ def load_model(params):
     elif model_type in {'GruDina'}:
         model = GRUDINA(n_pid=params.n_pid, n_question=params.n_question, q_embed_dim=params.q_embed_dim,
                         qa_embed_dim=params.qa_embed_dim, dropout=params.dropout, hidden_dim=params.hidden_dim,
-                        output_dim=params.output_dim, num_layers=params.num_layers, l2=params.l2).to(device)
+                        output_dim=params.output_dim, num_layers=params.num_layers, l2=params.l2)
+        model = nn.DataParallel(model, device_ids=device)
+        model = model.to(device[0])
     else:
         model = None
     return model

@@ -12,8 +12,9 @@ from eval import *
 from model import *
 from utils import *
 from grudina import GRUDINA
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+import time
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = [0,1,2]
 
 
 # assert torch.cuda.is_available(), "No Cuda available, AssertionError"
@@ -42,8 +43,7 @@ def train_one_dataset(params, file_name, train_q_data, train_qa_data, train_pid,
     matrix = matrix
     for index in range(params.max_iter):
         # 设置每一次迭代的开始时间，最后获取结束时间，计算训练时间，输出格式为时分秒
-        start_time = time.time()
-        print('time')
+
         # Train Model
         train_loss, train_accuracy, train_auc = train(model, params, optimizer, train_q_data, train_qa_data, train_pid,
                                                       matrix, label='Train')
@@ -131,16 +131,16 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=224, help='默认随机种子')
     parser.add_argument('--max_iter', type=int, default=1, help='迭代次数')
     parser.add_argument('--optim', type=str, default='adam', help='默认优化器')
-    parser.add_argument('--batch_size', type=int, default=24)
+    parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--lr', type=float, default=1e-5)
     parser.add_argument('--model', type=str, default='GruDina_pid',
                         help="combination of akt/dkvmn/dkt, pid/cid separated by underscore '_'. For example tf_pid")
     parser.add_argument('--dataset', type=str, default="assist2009_pid")
 
-    parser.add_argument('--dropout', type=float, default=0.5)
+    parser.add_argument('--dropout', type=float, default=0)
     parser.add_argument('--qa_embed_dim', type=int, default=256, help='answer and question embedding dimensions')
     parser.add_argument('--q_embed_dim', type=int, default=50, help='question embedding dimensions')
-    parser.add_argument('--num_layers', type=int, default=2, help='隐藏层层数')
+    parser.add_argument('--num_layers', type=int, default=1, help='隐藏层层数')
     parser.add_argument('--hidden_dim', type=int, default=256)
     parser.add_argument('--output_dim', type=int, default=110, help='output dimensions')
     parser.add_argument('--bidirectional', type=bool, default=False, help='是否使用双向RNN模型')
@@ -228,10 +228,10 @@ if __name__ == '__main__':
     valid_q_data, valid_qa_data, valid_pid = dat.load_data(valid_data_path)
 
     print("\n")
-    print("train_q_data.shape", train_q_data.shape)
-    print("train_qa_data.shape", train_qa_data.shape)
-    print("valid_q_data.shape", valid_q_data.shape)  # (1566, 200)
-    print("valid_qa_data.shape", valid_qa_data.shape)  # (1566, 200)
+    print("train_q_data.shape", train_q_data.shape)  # (2994, 200)
+    print("train_qa_data.shape", train_qa_data.shape)  # (2994, 200)
+    print("valid_q_data.shape", valid_q_data.shape)  # (974, 200)
+    print("valid_qa_data.shape", valid_qa_data.shape)  # (974, 200)
     print("\n")
     # print(train_q_data[:6,:])
     # print(train_q_data[6:12,:])

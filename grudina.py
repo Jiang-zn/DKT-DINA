@@ -9,9 +9,9 @@ import math
 import torch.nn.functional as F
 from enum import IntEnum
 import numpy as np
+import time
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+device= [0, 1, 2]
 
 class GRUDINA(nn.Module):
     # q_embed_dim=50 qa_embed_dim = 256 hidden_dim = 256 output_dim = 110
@@ -166,12 +166,12 @@ class GRUDINA(nn.Module):
         labels = target.reshape(-1)
         m = nn.Sigmoid()
         mask = labels > -0.9
-        masked_labels = labels[mask].float()
-        masked_preds = preds[mask]
+        masked_labels = labels[mask].float().to(device[1])
+        masked_preds = preds[mask].to(device[1])
         #MSELoss
         criterion = nn.MSELoss(reduction='none')
-        criterion.to(device)
-        loss = criterion(masked_preds, masked_labels)
+        criterion.to(device[1])
+        output = criterion(masked_preds, masked_labels)
 
         # slip_probs = slip.unsqueeze(0)
         # guess_probs = guess.unsqueeze(0)
