@@ -6,8 +6,9 @@ from sklearn import metrics
 from grudina import GRUDINA
 from utils import model_isPid
 import time
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-device= [0, 1, 2]
+# device= [0, 1, 2]
 
 
 # transpose_data_model = {'DKT-DINA'}
@@ -101,12 +102,17 @@ def train(net, params, optimizer, q_data, qa_data, pid_data, matrix, label):
         matrix = torch.as_tensor(matrix, dtype=torch.float32, device=device[1])
         # if pid_flag:
         input_pid = torch.from_numpy(input_pid).long().to(device[1])
+
         # if pid_flag:
         loss, prediction, true_ct = net(input_q, input_qa, matrix, target, input_pid)
         print('train finished compute loss')
         prediction = prediction.cpu().detach().numpy()
         loss.backward()
         true_el += true_ct.cpu().numpy()  # 预测答对的总数
+        # 执行参数更新的步骤,帮助防止梯度爆炸的问题
+        # if params.maxgradnorm > 0.:
+        #     torch.nn.utils.clip_grad_norm_(
+        #         net.parameters(), max_norm=params.maxgradnorm)
         optimizer.step()
         # correct: 1.0; wrong 0.0; padding -1.0  将target_1重塑为一维数组
         target = target_l.reshape((-1,))
@@ -132,7 +138,6 @@ def train(net, params, optimizer, q_data, qa_data, pid_data, matrix, label):
 
     # all_pred和all_target将包含所有数组在行方向上连接而成的结果
     all_pred = np.concatenate(pred_list, axis=0)
-
     all_target = np.concatenate(target_list, axis=0)
     loss = binaryEntropy(all_target, all_pred)
     auc = compute_auc(all_target, all_pred)

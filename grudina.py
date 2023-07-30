@@ -10,8 +10,9 @@ import torch.nn.functional as F
 from enum import IntEnum
 import numpy as np
 import time
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-device= [0, 1, 2]
+# device= [0, 1, 2]
 
 class GRUDINA(nn.Module):
     # q_embed_dim=50 qa_embed_dim = 256 hidden_dim = 256 output_dim = 110
@@ -164,7 +165,7 @@ class GRUDINA(nn.Module):
         pred = torch.stack([torch.tensor(p) for p in pred], dim=0)
         preds = pred.reshape(-1)
         labels = target.reshape(-1)
-        m = nn.Sigmoid()
+        m = nn.Sigmoid() # 创建一个 Sigmoid 模块的实例，然后可以使用该模块对张量进行 sigmoid 变换
         mask = labels > -0.9
         masked_labels = labels[mask].float().to(device[1])
         masked_preds = preds[mask].to(device[1])
@@ -173,10 +174,7 @@ class GRUDINA(nn.Module):
         criterion.to(device[1])
         output = criterion(masked_preds, masked_labels)
 
-        # slip_probs = slip.unsqueeze(0)
-        # guess_probs = guess.unsqueeze(0)
-        # predicted_probs = gru_out.sigmoid()
         # combined_probs = slip_probs * guess_probs + (1 - slip_probs) * (1 - guess_probs)
         # dina_output = predicted_probs * combined_probs + (1 - predicted_probs) * (1 - combined_probs)
-        # output = self.fc(dina_output)
+        #  m(preds)对preds每个元素sigmoid变换，将模型的预测结果压缩到 [0, 1] 的范围
         return output.sum() + c_reg_loss, m(preds), mask.sum()

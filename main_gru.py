@@ -13,8 +13,8 @@ from model import *
 from utils import *
 from grudina import GRUDINA
 import time
-# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-device = [0,1,2]
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# device = [0,1,2]
 
 
 # assert torch.cuda.is_available(), "No Cuda available, AssertionError"

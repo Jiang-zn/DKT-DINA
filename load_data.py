@@ -3,6 +3,7 @@ import math
 from scipy import sparse
 import torch
 
+
 class DATA(object):
     def __init__(self, n_question, seqlen, separate_char, name="data"):
         # In the ASSISTments2009 dataset:
@@ -191,7 +192,11 @@ class PID_DATA(object):
         for lineID, line in enumerate(f_data):
             line = line.strip()
             # lineID starts from 0
-            # 每4行为一个学生的数据，第一行是学生id，第二行是题目id，第三行是知识点序列，第四行是回答序列
+            # 每4行为一个学生的数据
+            # 第一行是学生id，
+            # 第二行是题目id，P：题目序列
+            # 第三行是知识点id，Q：知识点序列
+            # 第四行是回答情况，A：回答序列
             if lineID % 4 == 0:
                 student_id = lineID // 4
             if lineID % 4 == 1:
@@ -208,14 +213,9 @@ class PID_DATA(object):
                 if len(A[len(A) - 1]) == 0:
                     A = A[:-1]
 
-                # if len(A) % 200==0:
-                #     print("look  herehereherehereherehere")
-                #     print("A:", len(A))
-                #     print(lineID)
-
                 # 处理数据
                 n_split = 1
-                # print('len(Q):',len(Q))
+                # 序列太长的话，划分序列
                 if len(Q) > self.seqlen:
                     n_split = math.floor(len(Q) / self.seqlen)
                     if len(Q) % self.seqlen:
@@ -235,7 +235,6 @@ class PID_DATA(object):
                             question_sequence.append(int(Q[i]))
                             problem_sequence.append(int(P[i]))
                             answer_sequence.append(Xindex)
-                            student_id_previous = student_id
                         else:
                             print(Q[i])
                     q_data.append(question_sequence)
@@ -248,23 +247,19 @@ class PID_DATA(object):
         # 知识点q_dataArray，分割序列，统一长度为seqlen
         # 知识点-回答qa_dataArray(回答正确+知识点数n_question)，分割序列，统一长度为seqlen
         # 题目p_dataArray，分割序列，统一长度为seqlen
+        p_dataArray = np.zeros((len(p_data), self.seqlen))
         q_dataArray = np.zeros((len(q_data), self.seqlen))
+        qa_dataArray = np.zeros((len(qa_data), self.seqlen))
+        for j in range(len(p_data)):
+            dat = p_data[j]
+            p_dataArray[j, :len(dat)] = dat
         for j in range(len(q_data)):
             dat = q_data[j]
             q_dataArray[j, :len(dat)] = dat
-
-        qa_dataArray = np.zeros((len(qa_data), self.seqlen))
         for j in range(len(qa_data)):
             dat = qa_data[j]
             qa_dataArray[j, :len(dat)] = dat
 
-        p_dataArray = np.zeros((len(p_data), self.seqlen))
-        for j in range(len(p_data)):
-            dat = p_data[j]
-            p_dataArray[j, :len(dat)] = dat
-        # print(q_dataArray)
-        # print(qa_dataArray)
-        # print(p_dataArray)
         return q_dataArray, qa_dataArray, p_dataArray
 
     # 构建总的题目-知识点关联矩阵
@@ -359,7 +354,6 @@ class PID_DATA(object):
                 p_one_hot = torch.zeros(len(p_vector), self.n_pid)
                 print(p_one_hot.shape)
                 p_one_hot[torch.arange(len(p_vector)), torch.tensor(p_vector)] = 1
-
 
                 # 根据回答序列来处理题目序列的独热表示
                 a_vector = [int(a) for a in A]

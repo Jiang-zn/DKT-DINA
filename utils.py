@@ -2,8 +2,9 @@ import os
 import torch
 import torch.nn as nn
 from grudina import GRUDINA
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-device = [0,1,2]
+# device = [0,1,2]
 
 
 # 若文件夹不存在则创建文件夹
