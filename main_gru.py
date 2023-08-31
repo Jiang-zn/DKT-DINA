@@ -147,7 +147,7 @@ if __name__ == '__main__':
     # AKT-R Specific Parameter
     parser.add_argument('--l2', type=float, default=1e-5, help='l2 penalty for difficulty')
     # parser.add_argument('--maxgradnorm', type=float, default=-1, help='最大化梯度范数')
-    parser.add_argument('--final_fc_dim', type=int, default=512, help='fc层维度')
+    parser.add_argument('--final_fc_dim', type=int, default=110, help='fc层维度')
     # parser.add_argument('--num_difficulties', type=int, default=100, help='number of difficulties')
     # parser.add_argument('--num_discriminabilities', type=int, default=100, help='number of discriminabilities')
 

@@ -114,8 +114,8 @@ class GRUDINA(nn.Module):
                 if t >= 1:
                     guessing_rate_one[t] = guessing_rate_one[t - 1]
                     slipping_rate_one[t] = slipping_rate_one[t - 1]
-                qa_t = qa_data_one[:t + 1]  # 当前学生的答案序列
-                q_t = q_data_one[:t + 1]  # 当前学生的知识点序列
+                qa_t = qa_data_one[:t + 1]  # 学生的当前答案序列
+                q_t = q_data_one[:t + 1]  # 学生的当前知识点序列
                 current_q = q_t[-1]  # 当前回答的知识点
                 answered_all = (q_t == current_q).sum()  # 在t时间步前，回答过该知识点的次数
                 master_correct = 0
